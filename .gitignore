@@ -1,0 +1,5 @@
+*.pth
+*.parquet
+*.pyc
+poetry.lock
+thumbnails/

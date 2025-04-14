@@ -1,0 +1,26 @@
+[project]
+name = "ratemeai"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Pop101"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "zstandard (>=0.23.0,<0.24.0)",
+    "polars (>=1.27.1,<2.0.0)",
+    "torch (>=2.6.0,<3.0.0)",
+    "torchvision (>=0.21.0,<0.22.0)",
+    "efficientnet-pytorch (>=0.7.1,<0.8.0)",
+    "pillow (>=11.2.1,<12.0.0)",
+    "requests (>=2.32.3,<3.0.0)",
+    "tqdm (>=4.67.1,<5.0.0)",
+]
+
+[tool.poetry.group.dev.dependencies]
+jupyter = ">=1.1.1,<2.0.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
