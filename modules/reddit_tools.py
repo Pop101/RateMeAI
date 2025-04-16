@@ -1,10 +1,15 @@
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from PIL import Image
+from io import BytesIO
+
+import polars as pl
 
 import requests
-import json
 import tempfile
 import zstandard
+import os
+import re
 
 def download_process_zst(url:str) -> pl.DataFrame:    
     # Create a temporary directory
@@ -55,6 +60,14 @@ def download_thumbnail(url: str, path: str, max_retries=5):
     # Use the session to get the image with retries, redirects and headers
     response = session.get(url, headers=headers, allow_redirects=True, timeout=30)
     response.raise_for_status()
+    
+    # Check image dimensions before writing to disk
+    image = Image.open(BytesIO(response.content))
+    width, height = image.size
+    
+    # Throw error if image is the imgur NOT FOUND image
+    if width == 161 and height == 81:
+        raise RuntimeError("Image not found")
     
     # Create directory if needed
     os.makedirs(os.path.dirname(path), exist_ok=True)

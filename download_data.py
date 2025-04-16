@@ -12,8 +12,7 @@ from modules.reddit_tools import (
 
 
 print("Downloading and processing data...")
-df_posts = download_process_zst("https://the-eye.eu/redarcs/files/truerateme_comments.zst")
-
+df_posts = download_process_zst("https://the-eye.eu/redarcs/files/truerateme_submissions.zst")
 df_posts = df_posts.select([
     "id", "author", "created_utc", "subreddit",         # metadata
     "title", "selftext", "media_embed", "media", "url", # content
@@ -55,9 +54,10 @@ for idx, row in enumerate(df_view.iter_rows(named=True)):
         download_thumbnail(clean_url, local_path)
         df_posts[idx, 'local_thumbnail_path'] = local_path
         df_posts.write_parquet("reddit_posts.parquet")
-    except:
+    except Exception as e:
         print(f"Failed to download {clean_url}")
-        continue
+        if not isinstance(e, KeyboardInterrupt):
+            continue
 
 print("All thumbnails downloaded and paths updated in dataframe.")
 

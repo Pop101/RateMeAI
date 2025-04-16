@@ -4,50 +4,63 @@ import torch
 
 from PIL import Image
 
+from collections import OrderedDict
+
 from typing import Tuple
 import random
 
 MEAN = [0.35657480359077454, 0.3154948949813843,  0.2955925762653351]
 STD  = [0.32552820444107056, 0.30099010467529297, 0.2864872217178345]
 
-def pad_to_square(img):
-    width, height = img.size
-    if width == height:
-        return img
+def pad_to_square(image:torch.Tensor) -> torch.Tensor:
+    """Pad an image to make it square."""
+    c, h, w = image.shape
     
-    size = max(width, height)
-    result = Image.new("RGB", (size, size), (0, 0, 0))  # Black padding
-    x_offset = (size - width) // 2
-    y_offset = (size - height) // 2
-    result.paste(img, (x_offset, y_offset))
-    return result
+    # Find the maximum dimension
+    max_dim = max(h, w)
+    
+    # Calculate padding for height and width
+    pad_h = (max_dim - h) // 2
+    pad_h_remainder = (max_dim - h) % 2  # Handle odd padding
+    
+    pad_w = (max_dim - w) // 2
+    pad_w_remainder = (max_dim - w) % 2  # Handle odd padding
+    
+    # Apply padding [left, right, top, bottom]
+    padding = (pad_w, pad_w + pad_w_remainder, pad_h, pad_h + pad_h_remainder)
+    
+    # Use torch functional padding with constant value (usually 0 or 1 depending on normalization)
+    padded_image = torch.nn.functional.pad(image, padding, mode='constant', value=0)
+    return padded_image
         
 class ImageRatingDataset(Dataset):
-    def __init__(self, dataframe, transform=None):
+    def __init__(self, dataframe, size:tuple=(320, 320)):
         self.data = dataframe.to_dicts()
-        self.transform = transform
+        self.size = size
     
-    def get_transforms(self, train=True) -> transforms.Compose:
+    @staticmethod
+    def get_transforms(train=True) -> transforms.Compose:
         """Create image transforms with learned mean and std"""        
         # Create transforms pipeline
         if train:
             return transforms.Compose([
-                transforms.Lambda(pad_to_square),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomRotation(15),
                 transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
                 transforms.ColorJitter(brightness=0.1, contrast=0.1),
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
                 transforms.Normalize(mean=MEAN, std=STD),
             ])
         else:
             return transforms.Compose([
-                transforms.Lambda(pad_to_square),
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
                 transforms.Normalize(mean=MEAN, std=STD),
             ])
+            
+    def get_size_transpose(self):
+        return transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Lambda(pad_to_square),
+            transforms.Resize(self.size),
+        ])
         
     def __len__(self):
         return len(self.data)
@@ -59,22 +72,43 @@ class ImageRatingDataset(Dataset):
         
         # Load image. Note it is the user's job to apply transforms if desired
         image = Image.open(img_path).convert("RGB")
-        return image, torch.tensor(rating, dtype=torch.float32)
+        image_tensor = self.get_size_transpose()(image)
+        return image_tensor, torch.tensor(rating, dtype=torch.float32)
+
+
+
+class LRUCacheDataset(Dataset):
+    def __init__(self, dataset, cache_size=5000, device='cuda'):
+        self.dataset = dataset
+        self.cache_size = cache_size
+        self.device = device
+        self.cache = OrderedDict()  # LRU cache: idx -> (image, label)
     
-    def collate_fn(self, batch):
-        """Custom collate function to handle variable image sizes"""
-        images, ratings = zip(*batch)
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, idx):
+        if idx in self.cache:
+            # Move item to end (most recently used)
+            self.cache.move_to_end(idx)
+            return self.cache[idx]
         
-        # Apply transforms if provided
-        if self.transform:
-            images = [self.transform(img) for img in images]
-            images = torch.stack(images)
-        else:
-            # If no transforms provided, return list of PIL images
-            images = [img.convert("RGB") for img in images]
+        # Get from original dataset
+        image, label = self.dataset[idx]
         
-        ratings = torch.stack(ratings)
-        return images, ratings
+        # Move to device
+        image = image.to(self.device)
+        label = label.to(self.device)
+        
+        # Add to cache
+        self.cache[idx] = (image, label)
+        
+        # Remove oldest item if cache is full
+        if len(self.cache) > self.cache_size:
+            self.cache.popitem(last=False)
+        
+        return image, label
+
 
 # If we ever need to recalculate stats:
 def calculate_stats(data:ImageRatingDataset, sample_size: int) -> Tuple[list, list]:
