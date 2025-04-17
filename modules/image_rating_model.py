@@ -111,7 +111,7 @@ class ImageRatingModel:
         torch.save({
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),  # Save scheduler state
+            'scheduler_state_dict': self.scheduler.state_dict(),
         }, filepath)
         print(f"Model saved to {filepath}")
     
@@ -121,7 +121,7 @@ class ImageRatingModel:
         model = ImageRatingModel(model_type=model_type, lr=lr)
         
         # Load saved state
-        checkpoint = torch.load(filepath)
+        checkpoint = torch.load(filepath, map_location=device)
         model.model.load_state_dict(checkpoint['model_state_dict'])
         model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         
