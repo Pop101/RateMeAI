@@ -11,6 +11,7 @@ import itertools
 from tqdm import tqdm
 import os
 import shutil
+import gc
 
 BASE_MODEL = 'efficientnet-b5'
 IMAGE_SIZE = (456, 456)
@@ -94,7 +95,9 @@ def main():
                 loss = model.train_batch(batch, transforms=train_transforms)
                 if torch.cuda.is_available():
                     torch.cuda.synchronize()
-                    
+                torch.cuda.empty_cache()
+                gc.collect()
+                
                 batch_count += 1
                 pbar.update(1)
                 
