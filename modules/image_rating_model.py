@@ -19,9 +19,10 @@ class ImageRatingModel:
         num_ftrs = self.model._fc.in_features
         self.model._fc = nn.Sequential(
             nn.Linear(num_ftrs, 256),
+            nn.BatchNorm1d(256),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
             nn.Linear(256, 64),
+            nn.BatchNorm1d(64),
             nn.ReLU(inplace=True),
             nn.Linear(64, 1)
         )
@@ -46,8 +47,6 @@ class ImageRatingModel:
         
         # Unpack batch
         images, labels = batch
-        images.to(device)
-        labels.to(device)
         
         # Apply transforms on-the-fly to each image if transforms provided
         if transforms:
