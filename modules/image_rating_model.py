@@ -27,6 +27,16 @@ class ImageRatingModel:
             nn.Linear(64, 1)
         )
         
+        # Initialize weights
+        for m in self.model._fc.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+        
         # Move to device
         self.model = self.model.to(device)
         
