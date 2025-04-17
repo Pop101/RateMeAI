@@ -18,11 +18,12 @@ def prepare_data(file_path="data.parquet", batch_size=32):
     df = pl.read_parquet(file_path)
     
     # Add random column for splitting
+    np.random.seed(42)  # For reproducibility
     df = df.with_columns(pl.lit(np.random.rand(df.shape[0])).alias("random"))
     
     # Split based on random value
-    train_df = df.filter(pl.col("random") <= 0.9).drop("random")
-    test_df = df.filter(pl.col("random") > 0.9).drop("random")
+    train_df = df.filter(pl.col("random") <= 0.85).drop("random")
+    test_df = df.filter(pl.col("random") > 0.85).drop("random")
     
     # Create datasets
     # First create training dataset to learn stats

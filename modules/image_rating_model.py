@@ -8,7 +8,7 @@ from efficientnet_pytorch import EfficientNet
 from modules.torchgpu import device
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-MODEL_TYPE='efficientnet-b6'
+MODEL_TYPE='efficientnet-b4'
 
 class ImageRatingModel:
     def __init__(self, model_type=MODEL_TYPE, lr=0.001):
@@ -16,8 +16,16 @@ class ImageRatingModel:
         self.model = EfficientNet.from_pretrained(model_type)
         
         # Modify last layer for regression (as we want a linear output, not a softmax)
+        # Use a simple but deeper perceptron head
         num_ftrs = self.model._fc.in_features
-        self.model._fc = nn.Linear(num_ftrs, 1)
+        self.model._fc = nn.Sequential(
+            nn.Linear(num_ftrs, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(256, 64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, 1)
+        )
         
         # Move to device
         self.model = self.model.to(device)
@@ -27,10 +35,11 @@ class ImageRatingModel:
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
-            mode='min',           # Reduce LR when the validation loss stops decreasing
-            factor=0.1,           # Multiply the learning rate by this factor
-            patience=5,           # Number of epochs with no improvement after which LR will be reduced
-            min_lr=1e-6           # Lower bound on the learning rate
+            mode='min',
+            factor=0.7,
+            patience=10,          
+            cooldown=3,
+            min_lr=1e-6
         )
     
     def train_batch(self, batch, transforms=None):
