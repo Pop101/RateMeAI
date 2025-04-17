@@ -42,7 +42,11 @@ class ImageRatingModel:
         
         # Initialize criterion and optimizer
         self.criterion = nn.MSELoss()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+        self.optimizer = optim.AdamW(
+            self.model.parameters(),
+            lr=lr,
+            weight_decay=1e-5,
+        )
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
             mode='min',
@@ -68,6 +72,10 @@ class ImageRatingModel:
         transformed_images = transformed_images.to(device)
         labels = labels.to(device).view(-1, 1)
         
+        if torch.isnan(transformed_images).any():
+            print("NaN detected in input images!")
+            return float('nan')
+                    
         # Zero gradients
         self.optimizer.zero_grad()
         

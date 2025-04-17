@@ -12,8 +12,18 @@ from tqdm import tqdm
 import os
 import shutil
 
-BASE_MODEL = 'efficientnet-b4'
-IMAGE_SIZE = (400, 400)
+BASE_MODEL = 'efficientnet-b5'
+IMAGE_SIZE = (456, 456)
+
+# If you do not follow the table size, loss will be NaN
+# B0: 224 x 224
+# B1: 240 x 240
+# B2: 260 x 260
+# B3: 300 x 300
+# B4: 380 x 380
+# B5: 456 x 456
+# B6: 528 x 528
+# B7: 600 x 600
 
 # Prepare data
 def prepare_data(file_path="data.parquet", batch_size=32):
@@ -82,7 +92,9 @@ def main():
         while True:
             for batch in train_loader:
                 loss = model.train_batch(batch, transforms=train_transforms)
-                torch.cuda.synchronize()
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
+                    
                 batch_count += 1
                 pbar.update(1)
                 
