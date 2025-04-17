@@ -86,17 +86,23 @@ def main():
                 if batch_count % 100 == 0:
                     test_loss, test_mae = model.evaluate(tqdm(test_loader, desc="Testing", unit="batch"), transforms=test_transforms)
                     model.update_scheduler(test_loss)
-                    
-                if batch_count % 1000 == 0:
-                    print('\n')
-                    model.save(f"models/image_rating_model_batch_{batch_count}.pth")
                     with open("models/losses.txt", "a") as f:
                         f.write(f"{batch_count},{model.get_current_lr()},{loss},{test_loss},{test_mae}\n")
-                
+                    
+                if batch_count % 500 == 0:
+                    print('\n')
+                    model.save(f"models/image_rating_model_batch_{batch_count}.pth")
+                    
+                if batch_count > 25000:
+                    # Yeah the model has DEFINITELY converged by now
+                    break
+ 
     except KeyboardInterrupt:
-        pbar.close()
         print("Training interrupted. Saving final model...")
+    finally:
+        pbar.close()
         model.save("models/image_rating_model_final.pth")
+    
     print("Training complete.")
     
 if __name__ == "__main__":

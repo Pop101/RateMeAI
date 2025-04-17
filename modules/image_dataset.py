@@ -68,7 +68,7 @@ class ImageRatingDataset(Dataset):
     def __getitem__(self, idx):
         item = self.data[idx]
         img_path = item["local_thumbnail_path"]
-        rating = item["mean_rating"]
+        rating = item["weighted_rating"]
         
         # Load image. Note it is the user's job to apply transforms if desired
         image = Image.open(img_path).convert("RGB")
