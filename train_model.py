@@ -62,6 +62,8 @@ def main():
     
     # Get transforms from dataset
     train_transforms = ImageRatingDataset.get_transforms(train=True)
+    test_transforms  = ImageRatingDataset.get_transforms(train=False)
+    
     model = ImageRatingModel()
     shutil.rmtree("models", ignore_errors=True)
     os.makedirs("models", exist_ok=True)
@@ -82,8 +84,10 @@ def main():
                 
                 pbar.set_postfix({"Loss": f"{loss:.4f}", "Test Loss": f"{test_loss:.4f}", "Test MAE": f"{test_mae:.4f}"})
                 if batch_count % 100 == 0:
-                    test_loss, test_mae = model.evaluate(tqdm(test_loader, desc="Testing", unit="batch"))
+                    test_loss, test_mae = model.evaluate(tqdm(test_loader, desc="Testing", unit="batch"), transforms=test_transforms)
                     model.update_scheduler(test_loss)
+                    
+                if batch_count % 1000 == 0:
                     print('\n')
                     model.save(f"models/image_rating_model_batch_{batch_count}.pth")
                     with open("models/losses.txt", "a") as f:

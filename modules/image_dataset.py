@@ -135,4 +135,9 @@ def calculate_stats(data:ImageRatingDataset, sample_size: int) -> Tuple[list, li
         std = sample_batch.std(dim=[0, 2, 3]).tolist()
         return mean, std
     raise ValueError("No images found in the sample.")
+
+if __name__ == "__main__":
+    # Recalculate stats
+    import polars as pl
+    df = pl.read_parquet("./reddit_posts_rated.parquet")
     

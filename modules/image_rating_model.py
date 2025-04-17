@@ -1,3 +1,4 @@
+from typing import Any
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -7,8 +8,10 @@ from efficientnet_pytorch import EfficientNet
 from modules.torchgpu import device
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+MODEL_TYPE='efficientnet-b6'
+
 class ImageRatingModel:
-    def __init__(self, model_type='efficientnet-b3', lr=0.001):
+    def __init__(self, model_type=MODEL_TYPE, lr=0.001):
         # Initialize EfficientNet
         self.model = EfficientNet.from_pretrained(model_type)
         
@@ -27,7 +30,6 @@ class ImageRatingModel:
             mode='min',           # Reduce LR when the validation loss stops decreasing
             factor=0.1,           # Multiply the learning rate by this factor
             patience=5,           # Number of epochs with no improvement after which LR will be reduced
-            verbose=True,         # Print message when LR is reduced
             min_lr=1e-6           # Lower bound on the learning rate
         )
     
@@ -66,7 +68,7 @@ class ImageRatingModel:
     def update_scheduler(self, val_loss):
         self.scheduler.step(val_loss)
     
-    def evaluate(self, data_loader):
+    def evaluate(self, data_loader, transforms=None):
         self.model.eval()
         total_loss = 0.0
         total_mae = 0.0
@@ -76,6 +78,9 @@ class ImageRatingModel:
             for inputs, labels in data_loader:
                 inputs = inputs.to(device)
                 labels = labels.to(device).view(-1, 1)
+                
+                if transforms:
+                    inputs = transforms(inputs)
                 
                 outputs = self.model(inputs)
                 loss = self.criterion(outputs, labels)
@@ -90,6 +95,14 @@ class ImageRatingModel:
         
         return total_loss / num_samples, total_mae / num_samples
     
+    def __call__(self, image: torch.Tensor) -> torch.Tensor:
+        """Return predicted rating for a single image"""
+        self.model.eval()
+        with torch.no_grad():
+            image = image.to(device)
+            output = self.model(image)
+            return output
+        
     def get_current_lr(self):
         """Return the current learning rate"""
         return self.optimizer.param_groups[0]['lr']
@@ -103,7 +116,7 @@ class ImageRatingModel:
         print(f"Model saved to {filepath}")
     
     @staticmethod
-    def load(filepath, model_type='efficientnet-b0', lr=0.001):
+    def load(filepath, model_type=MODEL_TYPE, lr=0.001):
         # Create new model instance
         model = ImageRatingModel(model_type=model_type, lr=lr)
         
