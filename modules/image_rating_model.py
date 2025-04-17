@@ -6,12 +6,11 @@ import torch.optim as optim
 from efficientnet_pytorch import EfficientNet
 
 from modules.torchgpu import device
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-MODEL_TYPE='efficientnet-b4'
+BASE_MODEL = 'efficientnet-b0'
 
 class ImageRatingModel:
-    def __init__(self, model_type=MODEL_TYPE, lr=0.001):
+    def __init__(self, model_type=BASE_MODEL, lr=0.001):
         # Initialize EfficientNet
         self.model = EfficientNet.from_pretrained(model_type)
         
@@ -125,7 +124,7 @@ class ImageRatingModel:
         print(f"Model saved to {filepath}")
     
     @staticmethod
-    def load(filepath, model_type=MODEL_TYPE, lr=0.001):
+    def load(filepath, model_type=BASE_MODEL, lr=0.001):
         # Create new model instance
         model = ImageRatingModel(model_type=model_type, lr=lr)
         

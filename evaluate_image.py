@@ -7,7 +7,9 @@ from PIL import Image
 import torch
 
 from typing import Union
-MODEL = ImageRatingModel.load("models/image_rating_model_final.pth")
+from train_model import BASE_MODEL, IMAGE_SIZE
+
+MODEL = ImageRatingModel.load("models/image_rating_model_final.pth", model_type=BASE_MODEL)
 
 def evaluate_image(image:Union[str, Image.Image, torch.Tensor]) -> float:
     """Evaluates a face's attractiveness based on r/truerateme
@@ -27,7 +29,7 @@ def evaluate_image(image:Union[str, Image.Image, torch.Tensor]) -> float:
     
     # run needed transforms on image
     image = pad_to_square(image)
-    image = transforms.Resize((320, 320))(image) # unfortunately hardcoded
+    image = transforms.Resize(IMAGE_SIZE)(image) # unfortunately hardcoded
     image = ImageRatingDataset.get_transforms(train=False)(image)
     
     # run model

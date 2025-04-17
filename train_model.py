@@ -12,6 +12,9 @@ from tqdm import tqdm
 import os
 import shutil
 
+BASE_MODEL = 'efficientnet-b4'
+IMAGE_SIZE = (400, 400)
+
 # Prepare data
 def prepare_data(file_path="data.parquet", batch_size=32):
     # Load data
@@ -27,10 +30,10 @@ def prepare_data(file_path="data.parquet", batch_size=32):
     
     # Create datasets
     # First create training dataset to learn stats
-    train_dataset = ImageRatingDataset(train_df)
+    train_dataset = ImageRatingDataset(train_df, size=IMAGE_SIZE)
     train_dataset = LRUCacheDataset(train_dataset, cache_size=10000, device=device)
     
-    test_dataset = ImageRatingDataset(test_df)
+    test_dataset = ImageRatingDataset(test_df, size=IMAGE_SIZE)
     test_dataset = LRUCacheDataset(test_dataset, cache_size=10000, device=device)
     
     # Create data loaders
@@ -65,7 +68,7 @@ def main():
     train_transforms = ImageRatingDataset.get_transforms(train=True)
     test_transforms  = ImageRatingDataset.get_transforms(train=False)
     
-    model = ImageRatingModel()
+    model = ImageRatingModel(model_type=BASE_MODEL)
     shutil.rmtree("models", ignore_errors=True)
     os.makedirs("models", exist_ok=True)
     
