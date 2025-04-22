@@ -10,8 +10,8 @@ from collections import OrderedDict
 from typing import Tuple
 import random
 
-MEAN = [0.35657480359077454, 0.3154948949813843,  0.2955925762653351]
-STD  = [0.32552820444107056, 0.30099010467529297, 0.2864872217178345]
+MEAN = [0.4937741160392761, 0.4392690062522888, 0.40500015020370483]
+STD  = [0.29177841544151306, 0.27624377608299255, 0.26687321066856384]
 
 def pad_to_square(image:torch.Tensor) -> torch.Tensor:
     """Pad an image to make it square."""
@@ -124,9 +124,9 @@ def calculate_stats(data:ImageRatingDataset, sample_size: int) -> Tuple[list, li
     for idx in sample_indices:
         img_path = data.data[idx]["local_thumbnail_path"]
         img = Image.open(img_path).convert("RGB")
-        img = pad_to_square(img)
-        img = img.resize((224, 224))
+        img = img.resize(data.size)
         img_tensor = to_tensor(img)
+        img_tensor = pad_to_square(img_tensor)
         sample_tensors.append(img_tensor)
     
     # Stack tensors and calculate stats
@@ -141,4 +141,10 @@ if __name__ == "__main__":
     # Recalculate stats
     import polars as pl
     df = pl.read_parquet("./reddit_posts_rated.parquet")
+    ds = ImageRatingDataset(df)
     
+    print("Calculating stats...")
+    
+    mean, std = calculate_stats(ds, 800)
+    print("Mean:", mean)
+    print("STD:", std)
