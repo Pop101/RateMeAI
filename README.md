@@ -51,7 +51,7 @@ Our training protocol consisted of 25,000 batches with implementation of learnin
 
 ## Results and Evaluation
 
-The trained model demonstrates decent performance metrics, achieving a mean absolute error of 1.2 on our validation dataset. This indicates that, on average, the model's predicted attractiveness ratings deviate by approximately 1.2 points from human consensus ratings, which is close to the average human standard deviation of ratings (0.923).
+The trained model demonstrates decent performance metrics, achieving a mean absolute error of 1.01 on our validation dataset. This indicates that, on average, the model's predicted attractiveness ratings deviate by approximately 1.01 points from human consensus ratings, which is close to the average human standard deviation of ratings (0.923).
 
 ## Ethics
 
