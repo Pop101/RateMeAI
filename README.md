@@ -39,15 +39,23 @@ To develop our dataset, we implemented a systematic approach for extracting nume
 
 ![Rating distribution analysis showing weighted ratings with a mean of approximately 6.0 and demonstrably reduced variance compared to unweighted ratings](./.github/weighted_rating_distribution.png)
 
+*Rating distribution analysis showing weighted ratings with a mean of approximately 6.0 and demonstrably reduced variance compared to unweighted ratings*
+
 It is important to acknowledge certain methodological limitations in our data collection process. Notably, textual comments frequently contain numerical values that do not represent attractiveness ratings (e.g., "Others have rating him a 4 but I think he's a 5"). Despite this challenge, our weighting system appears to mitigate noise effectively by privileging higher-scoring comments that typically contain more accurate assessments.
 
 The foundation of our model is EfficientNet-B5, a convolutional neural network architecture recognized for its exceptional performance-to-parameter ratio in image classification tasks. This architecture employs compound scaling to optimize depth, width, and resolution dimensions simultaneously.
 
 ![EfficientNet architecture. Note that we use a feature map consisting of a three-layer perceptron with linear outputs](./.github/Architecture-of-EfficientNet-B0.png)
 
-Our training protocol consisted of 25,000 batches with implementation of learning rate reduction on performance plateau. To enhance model generalization, we employed batch shuffling at each epoch boundary. This methodology facilitated efficient convergence while mitigating overfitting risk.
+*EfficientNet architecture. Note that we use a feature map consisting of a three-layer perceptron with linear outputs*
 
-![Training performance visualization demonstrating rapid loss convergence by approximately batch 2000](./.github/losses.png)
+Our training protocol consisted of 25,000 batches with implementation of learning rate reduction on performance plateau. To enhance model generalization, we employed batch shuffling at each epoch boundary.
+
+![Training performance visualization demonstrating rapid loss convergence by approximately batch 4000](./.github/losses_and_mse.png)
+
+*Training performance visualization demonstrating rapid loss convergence by approximately batch 4000*
+
+Note that the validation loss and mse don't show much improvement over the training batches. Further work is needed, we consider replacing the model base with either ConvNeXt or EfficientNetV2, which have demonstrated superior performance in recent benchmarks. Additionally, we plan to explore the use of a larger dataset, as our current dataset is limited to 1,000 images. Please contribute with these changes if you are interested in this project.
 
 ## Results and Evaluation
 
