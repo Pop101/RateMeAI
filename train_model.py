@@ -90,7 +90,7 @@ def main():
         test_loss, test_mae = float("inf"), float("inf")
         batch_count = 0
         
-        while True:
+        while batch_count < 25_000:
             for batch in train_loader:
                 loss = model.train_batch(batch, transforms=train_transforms)
                 if torch.cuda.is_available():
@@ -111,10 +111,6 @@ def main():
                 if batch_count % 500 == 0:
                     print('\n')
                     model.save(f"models/image_rating_model_batch_{batch_count}.pth")
-                    
-                if batch_count > 25000:
-                    # Yeah the model has DEFINITELY converged by now
-                    break
  
     except KeyboardInterrupt:
         print("Training interrupted. Saving final model...")
