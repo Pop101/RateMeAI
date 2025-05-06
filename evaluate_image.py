@@ -1,4 +1,5 @@
-from modules.image_rating_model import ImageRatingModel
+from modules.efficientnet_model import EfficientNetModel
+from modules.convnext_model import ConvnextModel
 from modules.image_dataset import ImageRatingDataset, pad_to_square
 
 import torchvision.transforms as transforms
@@ -9,7 +10,7 @@ import torch
 from typing import Union
 from train_model import BASE_MODEL, IMAGE_SIZE
 
-MODEL = ImageRatingModel.load("models/image_rating_model_final.pth", model_type=BASE_MODEL)
+MODEL = ConvnextModel.load("models/image_rating_model_final.pth")
 
 def evaluate_image(image:Union[str, Image.Image, torch.Tensor]) -> float:
     """Evaluates a face's attractiveness based on r/truerateme

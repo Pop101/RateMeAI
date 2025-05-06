@@ -4,7 +4,8 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 
 from modules.image_dataset import ImageRatingDataset, LRUCacheDataset
-from modules.image_rating_model import ImageRatingModel
+from modules.efficientnet_model import EfficientNetModel
+from modules.convnext_model import ConvnextModel
 from modules.torchgpu import device
 
 import itertools
@@ -16,15 +17,6 @@ import gc
 BASE_MODEL = 'efficientnet-b5'
 IMAGE_SIZE = (456, 456)
 
-# If you do not follow the table size, loss will be NaN
-# B0: 224 x 224
-# B1: 240 x 240
-# B2: 260 x 260
-# B3: 300 x 300
-# B4: 380 x 380
-# B5: 456 x 456
-# B6: 528 x 528
-# B7: 600 x 600
 
 # Prepare data
 def prepare_data(file_path="data.parquet", batch_size=32):
@@ -42,10 +34,10 @@ def prepare_data(file_path="data.parquet", batch_size=32):
     # Create datasets
     # First create training dataset to learn stats
     train_dataset = ImageRatingDataset(train_df, size=IMAGE_SIZE)
-    train_dataset = LRUCacheDataset(train_dataset, cache_size=10000, device=device)
+    train_dataset = LRUCacheDataset(train_dataset, cache_size=10_000, device=device)
     
     test_dataset = ImageRatingDataset(test_df, size=IMAGE_SIZE)
-    test_dataset = LRUCacheDataset(test_dataset, cache_size=10000, device=device)
+    test_dataset = LRUCacheDataset(test_dataset, cache_size=10_000, device=device)
     
     # Create data loaders
     train_loader = DataLoader(
@@ -79,8 +71,7 @@ def main():
     train_transforms = ImageRatingDataset.get_transforms(train=True)
     test_transforms  = ImageRatingDataset.get_transforms(train=False)
     
-    model = ImageRatingModel(model_type=BASE_MODEL)
-    shutil.rmtree("models", ignore_errors=True)
+    model = ConvnextModel()
     os.makedirs("models", exist_ok=True)
     
     print("Starting training...")
@@ -108,7 +99,7 @@ def main():
                     with open("models/losses.txt", "a") as f:
                         f.write(f"{batch_count},{model.get_current_lr()},{loss},{test_loss},{test_mae}\n")
                     
-                if batch_count % 500 == 0:
+                if batch_count % 1000 == 0:
                     print('\n')
                     model.save(f"models/image_rating_model_batch_{batch_count}.pth")
  
