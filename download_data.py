@@ -2,11 +2,12 @@ import os
 import polars as pl
 import re
 
+import sys
+sys.path.append('modules/imgur_album_downloader/ImgurAlbumDownloader')
+from imguralbum import ImgurAlbumDownloader
+
 from modules.reddit_tools import (
     download_process_zst,
-    download_thumbnail,
-    remove_url_args,
-    is_img_url,
     mean_of_floats_extraction
 )
 
@@ -20,9 +21,9 @@ df_posts = df_posts.select([
 
 # filter empty, removed, and delted posts
 df_posts = df_posts.filter(
-    (pl.col("media_embed").is_not_null()) &
     (pl.col("media").is_not_null()) &
     (pl.col("url").is_not_null()) &
+    (pl.col("url").str.contains("imgur.com")) &
     (pl.col("selftext") != "[removed]") &
     (pl.col("selftext") != "[deleted]")
 )
@@ -30,37 +31,39 @@ df_posts = df_posts.filter(
 # Download all thumbnails in df, updating rows with the local path upon download
 # note that we write every step to parquet to avoid losing data
 # also we skip rows if file already exists
-if 'local_thumbnail_path' not in df_posts.columns:
-    df_posts = df_posts.with_columns(pl.lit("").alias('local_thumbnail_path'))
+saved_posts = pl.DataFrame(schema={**df_posts.schema, 
+    'local_path': pl.datatypes.Utf8,
+})
 
-df_view = df_posts.clone()
-for idx, row in enumerate(df_view.iter_rows(named=True)):
+for idx, row in enumerate(df_posts.iter_rows(named=True)):
     # Extract thumbnail url
+    imgur_url = row['url']
+    
+    downloader = ImgurAlbumDownloader(imgur_url)
+    local_path = os.path.join("thumbnails", downloader.album_key)
+    
+    # Set callbacks
+    rows_to_insert = list()
+    def record_row(i, url, path):
+        this_row = dict(**row)
+        this_row['local_path'] = path
+        rows_to_insert.append(this_row)
+    
+    downloader.on_image_download(record_row)
+    
+    # Download the album    
     try:
-        thumbnail_url = row['media']['oembed']['thumbnail_url']
-    except (KeyError, TypeError):
-        continue
-    if thumbnail_url == None: continue
-    
-    clean_url = remove_url_args(thumbnail_url)
-    if not is_img_url(clean_url):  continue
-    
-    ext = os.path.splitext(clean_url)[1]
-    local_path = os.path.join("thumbnails", f"{row['id']}{ext}")
-    
-    if os.path.exists(local_path): continue
-    
-    try:
-        download_thumbnail(clean_url, local_path)
-        df_posts[idx, 'local_thumbnail_path'] = local_path
-        df_posts.write_parquet("reddit_posts.parquet")
+        downloader.save_images(local_path)
+        if rows_to_insert:
+            saved_posts = saved_posts.vstack(pl.DataFrame(rows_to_insert))
+            saved_posts.write_parquet("reddit_posts.parquet")
     except Exception as e:
-        print(f"Failed to download {clean_url}")
-        if not isinstance(e, KeyboardInterrupt):
-            continue
+        if isinstance(e, KeyboardInterrupt):
+            raise e
+        print(f"Failed to download {imgur_url} [{e}]")
 
 print("All thumbnails downloaded and paths updated in dataframe.")
-
+df_posts = saved_posts
 
 print("Downloading and processing comments...")
 df_comments = download_process_zst("https://the-eye.eu/redarcs/files/truerateme_comments.zst")
@@ -110,7 +113,7 @@ reddit_posts = reddit_posts.join(
     how      = "left"
 ).filter(
     (pl.col("rating_count") > 0) &
-    (pl.col("local_thumbnail_path") != "")
+    (pl.col("local_path") != "")
 )
 
 reddit_posts.write_parquet("reddit_posts_rated.parquet")

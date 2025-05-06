@@ -1,0 +1,3 @@
+[submodule "modules/imgur_album_downloader"]
+	path = modules/imgur_album_downloader
+	url = https://github.com/Pop101/imgur-album-downloader.git
