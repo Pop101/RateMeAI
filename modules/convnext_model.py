@@ -78,7 +78,7 @@ class ConvnextModel:
     def evaluate(self, data_loader, transforms=None):
         self.model.eval()
         total_loss = 0.0
-        total_acc = 0.0
+        total_mae = 0.0
         num_samples = 0
         
         with torch.no_grad():
@@ -99,7 +99,7 @@ class ConvnextModel:
                 total_mae += mae.item() * batch_size
                 num_samples += batch_size
         
-        return total_loss / num_samples, total_acc / num_samples
+        return total_loss / num_samples, total_mae / num_samples
     
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
         """Return predicted probabilities for a single image"""
