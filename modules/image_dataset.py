@@ -68,7 +68,7 @@ class ImageRatingDataset(Dataset):
     
     def __getitem__(self, idx):
         item = self.data[idx]
-        img_path = item["local_thumbnail_path"]
+        img_path = item["local_path"]
         rating = item["mean_rating"] if np.isnan(item["weighted_rating"]) or np.isinf(item["weighted_rating"]) else item["weighted_rating"]
         
         # Load image. Note it is the user's job to apply transforms if desired
