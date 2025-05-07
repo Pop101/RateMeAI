@@ -49,7 +49,7 @@ for idx, row in enumerate(df_posts.iter_rows(named=True)):
         this_row['local_path'] = path
         rows_to_insert.append(this_row)
     
-    downloader.on_image_download(record_row)
+    downloader.on_download_success(record_row)
     
     # Download the album    
     try:
