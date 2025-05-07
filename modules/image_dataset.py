@@ -122,7 +122,7 @@ def calculate_stats(data:ImageRatingDataset, sample_size: int) -> Tuple[list, li
     to_tensor = transforms.ToTensor()
     
     for idx in sample_indices:
-        img_path = data.data[idx]["local_thumbnail_path"]
+        img_path = data.data[idx]["local_path"]
         img = Image.open(img_path).convert("RGB")
         img = img.resize(data.size)
         img_tensor = to_tensor(img)
