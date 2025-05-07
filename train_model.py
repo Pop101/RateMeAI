@@ -72,6 +72,7 @@ def main():
     test_transforms  = ImageRatingDataset.get_transforms(train=False)
     
     model = ConvnextModel()
+    model.send_to_device(device)
     os.makedirs("models", exist_ok=True)
     
     print("Starting training...")
