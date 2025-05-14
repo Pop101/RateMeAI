@@ -1,11 +1,19 @@
 import torch.nn as nn
+import numpy as np
+
+def mspace(start, end, num):
+    factor = (end / start) ** (1 / num)
+    return np.array([start * (factor ** i) for i in range(num)])
 
 class ComplexHead(nn.Module):
     def __init__(self, in_features, out_features=1):
         super().__init__()
         
         # Dims, currently hardcoded (if we made it variable-length, skip conns would be hard)
-        self.dims = [in_features, 512, 256, 128, 64]
+        self.dims = mspace(in_features, max(out_features, 64), 5).astype(int)
+        self.dims = np.concatenate((self.dims, [out_features]))
+        self.dims = np.unique(self.dims).astype(int)
+        
         self.out_features = out_features
         
         # Main processing blocks
@@ -68,9 +76,7 @@ class ComplexHead(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
                 
-    def forward(self, x):
-        x = x.view(x.size(0), -1)
-        
+    def forward(self, x):        
         # Forward through main path
         b1 = self.block1(x)
         b2 = self.block2(b1)
