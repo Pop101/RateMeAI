@@ -59,11 +59,11 @@ Note that the validation loss and mse don't show much improvement over the train
 
 ## Results and Evaluation
 
-The trained model demonstrates decent performance metrics, achieving a mean absolute error of 1.01 on our validation dataset. This indicates that, on average, the model's predicted attractiveness ratings deviate by approximately 1.01 points from human consensus ratings, which is close to the average human standard deviation of ratings (0.923).
+The trained model demonstrates decent performance metrics, achieving a mean absolute error of 0.98 on our validation dataset. This indicates that, on average, the model's predicted attractiveness ratings deviate by approximately 0.98 points from human consensus ratings, which is close to the average human standard deviation of ratings (0.923). However, such an average performance is still extremely poor, as 61% of posts fall within 1 point of the median rating. This suggests that the model's predictions are not significantly better than random guessing 6 every time.
 
 ## Ethics
 
-This project is ripe for abuse. Please don't.
+This project is ripe for abuse. Luckily, it barely works, but still: Please don't.
 
 # Getting Started
 

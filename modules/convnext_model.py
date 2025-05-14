@@ -15,7 +15,12 @@ class ConvnextModel:
         # Replace ConvNeXt's classifier with our complex head
         if hasattr(self.model, 'classifier') and isinstance(self.model.classifier[-1], nn.Linear):
             num_ftrs = self.model.classifier[-1].in_features
-            self.model.classifier = ComplexHead(num_ftrs, out_features=1)
+            self.model.classifier = nn.Sequential(
+                nn.AdaptiveAvgPool2d((2, 2)),
+                nn.LayerNorm2d(num_ftrs),
+                nn.Flatten(1),
+                ComplexHead(num_ftrs * 2 * 2, out_features=1)
+            )
             
         else:
             raise ValueError("Unsupported model architecture")
