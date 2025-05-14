@@ -4,7 +4,7 @@ import numpy as np
 
 def mspace(start, end, num):
     factor = (end / start) ** (1 / num)
-    return np.array([start * (factor ** i) for i in range(num)])
+    return [start * (factor ** i) for i in range(num)]
 
 class LayerNorm2d(nn.Module):
     def __init__(self, num_channels, eps=1e-6):
@@ -25,10 +25,9 @@ class ComplexHead(nn.Module):
         super().__init__()
         
         # Dims, currently hardcoded (if we made it variable-length, skip conns would be hard)
-        self.dims = mspace(in_features, max(out_features, 64), 5).astype(int)
-        self.dims = np.concatenate((self.dims, [out_features]))
-        self.dims = np.unique(self.dims).astype(int)
-        
+        self.dims = mspace(in_features, max(out_features, 64), 5) + [out_features]
+        self.dims = list(map(round ,self.dims))
+
         self.out_features = out_features
         
         # Main processing blocks
