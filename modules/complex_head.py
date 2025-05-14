@@ -35,28 +35,28 @@ class ComplexHead(nn.Module):
             nn.Linear(self.dims[0], self.dims[1]),
             nn.BatchNorm1d(self.dims[1]),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3)
+            nn.Dropout(0.1)
         )
         
         self.block2 = nn.Sequential(
             nn.Linear(self.dims[1], self.dims[2]),
             nn.BatchNorm1d(self.dims[2]),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.3)
+            nn.Dropout(0.1)
         )
         
         self.block3 = nn.Sequential(
             nn.Linear(self.dims[2], self.dims[3]),
             nn.BatchNorm1d(self.dims[3]),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.2)
+            nn.Dropout(0.1)
         )
         
         self.block4 = nn.Sequential(
             nn.Linear(self.dims[3], self.dims[4]),
             nn.BatchNorm1d(self.dims[4]),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Dropout(0.1)
+            nn.Dropout(0.05)
         )
         
         # Skip connections
