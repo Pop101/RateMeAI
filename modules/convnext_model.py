@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision.models import convnext_base, ConvNeXt_Base_Weights
 
-from modules.complex_head import ComplexHead
+from modules.complex_head import ComplexHead, LayerNorm2d
 from modules.torchgpu import device
 
 class ConvnextModel:
@@ -17,7 +17,7 @@ class ConvnextModel:
             num_ftrs = self.model.classifier[-1].in_features
             self.model.classifier = nn.Sequential(
                 nn.AdaptiveAvgPool2d((2, 2)),
-                nn.LayerNorm2d(num_ftrs),
+                LayerNorm2d(num_ftrs),
                 nn.Flatten(1),
                 ComplexHead(num_ftrs * 2 * 2, out_features=1)
             )
