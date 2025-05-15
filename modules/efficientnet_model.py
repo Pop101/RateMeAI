@@ -46,7 +46,7 @@ class EfficientNetModel:
             self.optimizer,
             mode='min',
             factor=0.7,
-            patience=10,          
+            patience=5,          
             cooldown=3,
             min_lr=1e-6
         )

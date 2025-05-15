@@ -37,9 +37,9 @@ class ConvnextModel:
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer,
             mode='min',
-            factor=0.8,
-            patience=12,          
-            cooldown=10,
+            factor=0.7,
+            patience=5,          
+            cooldown=3,
             min_lr=1e-6
         )
     
