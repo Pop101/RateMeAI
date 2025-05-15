@@ -6,6 +6,7 @@ import torch
 from modules.image_dataset import ImageRatingDataset, LRUCacheDataset
 from modules.efficientnet_model import EfficientNetModel
 from modules.convnext_model import ConvnextModel
+from modules.visiontranformer_model import VisionTransformerModel
 from modules.torchgpu import device
 
 import itertools
@@ -70,7 +71,7 @@ def main():
     train_transforms = ImageRatingDataset.get_transforms(train=True)
     test_transforms  = ImageRatingDataset.get_transforms(train=False)
     
-    model = ConvnextModel()
+    model = VisionTransformerModel(input_size=IMAGE_SIZE[0], lr=0.001)
     model.send_to_device(device)
     os.makedirs("models", exist_ok=True)
     if os.path.exists("models/losses.txt"): os.remove("models/losses.txt") 
