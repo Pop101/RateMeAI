@@ -19,7 +19,8 @@ class ConvnextModel:
                 nn.AdaptiveAvgPool2d((2, 2)),
                 LayerNorm2d(num_ftrs),
                 nn.Flatten(1),
-                ComplexHead(num_ftrs * 2 * 2, out_features=1)
+                ComplexHead(num_ftrs * 2 * 2, out_features=1),
+                nn.Linear(1, 1),  # Scale layer
             )
             
         else:

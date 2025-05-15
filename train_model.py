@@ -14,7 +14,6 @@ import os
 import shutil
 import gc
 
-BASE_MODEL = 'efficientnet-b5'
 IMAGE_SIZE = (456, 456)
 
 
@@ -74,6 +73,7 @@ def main():
     model = ConvnextModel()
     model.send_to_device(device)
     os.makedirs("models", exist_ok=True)
+    if os.path.exists("models/losses.txt"): os.remove("models/losses.txt") 
     
     print("Starting training...")
     print(f"Training on {len(train_loader.dataset)} images")
