@@ -8,6 +8,10 @@
 - [Technologies](#technologies)
 - [Methodology](#methodology)
   - [Data Collection Methodology](#data-collection-methodology)
+  - [Model Architecture](#model-architecture)
+    - [Base Model Architectures](#base-model-architectures)
+  - [Unified Classification Head](#unified-classification-head)
+  - [Performance Comparison](#performance-comparison)
   - [Results and Evaluation](#results-and-evaluation)
   - [Ethics](#ethics)
 - [Getting Started](#getting-started)
@@ -43,23 +47,55 @@ To develop our dataset, we implemented a systematic approach for extracting nume
 
 It is important to acknowledge certain methodological limitations in our data collection process. Notably, textual comments frequently contain numerical values that do not represent attractiveness ratings (e.g., "Others have rating him a 4 but I think he's a 5"). Despite this challenge, our weighting system appears to mitigate noise effectively by privileging higher-scoring comments that typically contain more accurate assessments.
 
-The foundation of our model is EfficientNet-B5, a convolutional neural network architecture recognized for its exceptional performance-to-parameter ratio in image classification tasks. This architecture employs compound scaling to optimize depth, width, and resolution dimensions simultaneously.
+## Model Architecture
 
-![EfficientNet architecture. Note that we use a feature map consisting of a three-layer perceptron with linear outputs](./.github/Architecture-of-EfficientNet-B0.png)
+Our approach leverages multiple state-of-the-art vision models with a standardized classification head to evaluate performance trade-offs. We implemented four distinct backbone architectures:
 
-*EfficientNet architecture. Note that we use a feature map consisting of a three-layer perceptron with linear outputs*
+### Base Model Architectures
 
-Our training protocol consisted of 25,000 batches with implementation of learning rate reduction on performance plateau. To enhance model generalization, we employed batch shuffling at each epoch boundary.
+1. **EfficientNet-B5**: A convolutional neural network known for its exceptional performance-to-parameter ratio through compound scaling, optimizing depth, width, and resolution dimensions simultaneously.
 
-![Training performance visualization demonstrating rapid loss convergence by approximately batch 4000](./.github/losses_and_mse.png)
+2. **ConvNeXT**: A pure convolutional architecture that incorporates modern design elements from transformers while maintaining the inductive biases of CNNs, offering strong performance with reduced computational overhead.
 
-*Training performance visualization demonstrating rapid loss convergence by approximately batch 4000*
+3. **VisionTransformer (ViT)**: A transformer-based architecture that processes images as sequences of patches, leveraging self-attention mechanisms to capture global dependencies between image regions.
 
-Note that the validation loss and mse don't show much improvement over the training batches. Further work is needed, we consider replacing the model base with either ConvNeXt or EfficientNetV2, which have demonstrated superior performance in recent benchmarks. Additionally, we plan to explore the use of a larger dataset, as our current dataset is limited to 1,000 images. Please contribute with these changes if you are interested in this project.
+4. **CLIP**: A multimodal model trained on image-text pairs that learns visual representations aligned with natural language descriptions, enabling zero-shot transfer to new tasks.
+
+## Unified Classification Head
+
+Despite the architectural differences in our backbone models, all implementations use an identical classification head to ensure fair comparison:
+
+![Classification head architecture used across all model variants](./.github/head_chart.svg)
+
+This standardized head consists of a deeply connected four-layer perceptron with linear outputs and simple attention mechanism, allowing us to isolate the impact of backbone architecture choices on model performance.
+
+The dimensionality of each layer of the head is determined by the base model's output size, decreased by a constant multiplicative factor each layer. The final layer's output size is set to 1, representing the predicted attractiveness score.
+
+The head is trained using a mean absolute error (MAE) loss function, which is particularly suitable for regression tasks where the goal is to minimize the average absolute difference between predicted and true values. This choice of loss function aligns with our objective of accurately predicting attractiveness ratings based on the community's consensus.
+
+## Performance Comparison
+
+<!--
+CLIP 1.9108483791351318,1.4987825991508448,0.9763053660697125
+VisionTransformer,1.096127986907959,1.547300193863178,0.9961799246199587
+ConvNext,1.558685302734375,1.5261214678013355,0.9844292021812276
+EfficientNet-B5,0.017082229256629944,1.7947629908617533,1.0255417611188948
+-->
+
+| Model             | Train Loss | Validation Loss | Validation MAE |
+| ----------------- | ---------- | --------------- | -------------- |
+| EfficientNet-B5   | 0.017      | 1.795           | 1.026          |
+| ConvNext          | 1.559      | 1.526           | 0.984          |
+| VisionTransformer | 1.096      | 1.547           | 0.996          |
+| CLIP              | 1.911      | 1.499           | 0.976          |
+
+Our training protocol consisted of 25,000 batches for each model, implementing learning rate reduction on performance plateau. To enhance model generalization, we employed batch shuffling at each epoch boundary. Likewise, we apply random transformations in hue, rotation, flip, affine, and color jittering to augment the dataset and improve model robustness. The training process was conducted with a batch size of 32 and an initial learning rate of 0.001.
 
 ## Results and Evaluation
 
-The trained model demonstrates decent performance metrics, achieving a mean absolute error of 0.98 on our validation dataset. This indicates that, on average, the model's predicted attractiveness ratings deviate by approximately 0.98 points from human consensus ratings, which is close to the average human standard deviation of ratings (0.923). However, such an average performance is still extremely poor, as 61% of posts fall within 1 point of the median rating. This suggests that the model's predictions are not significantly better than random guessing 6 every time.
+The trained model achieves a mean absolute error of 0.98 on our validation dataset. This indicates that, on average, the model's predicted attractiveness ratings deviate by approximately 0.98 points from human consensus ratings, which is close to the average human standard deviation of ratings (0.923) for the same post. However, such an average performance is still extremely poor, as 61% of posts fall within 1 point of the median rating. This suggests that the model's predictions are not significantly better than random guessing 6 every time.
+
+A variety of model architectures were attempted, and none could outperform this 0.98 MAE. In fact, most models approached within 3% of this value, indicating that such models are achieving convergence to a local minimum. This suggests that the model is not overfitting, but rather that the data itself is inherently noisy and difficult to learn from. Further high-quality data collection and curation is necessary.
 
 ## Ethics
 
