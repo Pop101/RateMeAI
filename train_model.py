@@ -99,9 +99,10 @@ def main():
                     model.update_scheduler(test_loss)
                     with open("models/losses.txt", "a") as f:
                         f.write(f"{batch_count},{model.get_current_lr()},{loss},{test_loss},{test_mae}\n")
+                    print('\n')
                     
                 if batch_count % 1000 == 0:
-                    print('\n')
+                    print(f'\nBatch {batch_count}: Saving Model...')
                     model.save(f"models/image_rating_model_batch_{batch_count}.pth")
  
     except KeyboardInterrupt:
