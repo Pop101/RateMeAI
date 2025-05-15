@@ -92,9 +92,12 @@ class ConvnextModel:
                 if transforms:
                     inputs = transforms(inputs)
                 
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+            
                 # Get output floats
                 outputs = self.model(inputs)
-                outputs = outputs.squeeze()
+                outputs = outputs.view(labels.shape)
                 loss = self.criterion(outputs, labels)
                 
                 # Calculate accuracy for multi-label classification
