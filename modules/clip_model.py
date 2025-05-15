@@ -139,9 +139,13 @@ class CLIPVisionAnalysisModel:
         
 class ClipBaseModel(nn.Module):
     """Wrapper for CLIP vision model to use in a sequential model"""
-    def __init__(self, model_name="openai/clip-vit-base-patch32"):
+    def __init__(self, model_name="openai/clip-vit-base-patch32", freeze=False):
         super().__init__()
         self.clip_vision_model = CLIPVisionModel.from_pretrained(model_name)
+        
+        # Freeze the model
+        for param in self.clip_vision_model.parameters():
+            param.requires_grad = not freeze
         
     def forward(self, x):
         outputs = self.clip_vision_model(pixel_values=x)
@@ -150,3 +154,7 @@ class ClipBaseModel(nn.Module):
     @property
     def hidden_dim(self):
         return self.clip_vision_model.config.hidden_size
+    
+    @property
+    def is_frozen(self):
+        return all(not param.requires_grad for param in self.clip_vision_model.parameters())
