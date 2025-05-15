@@ -16,6 +16,7 @@ dependencies = [
     "pillow (>=11.2.1,<12.0.0)",
     "requests (>=2.32.3,<3.0.0)",
     "tqdm (>=4.67.1,<5.0.0)",
+    "transformers (>=4.51.3,<5.0.0)",
 ]
 
 [tool.poetry.group.dev.dependencies]
