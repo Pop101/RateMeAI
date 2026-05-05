@@ -21,7 +21,7 @@
 
 # Overview
 
-We present RateMeAI, a novel facial evaluation tool that leverages data from the r/truerateme community to construct a neural network capable of quantitatively assessing facial attractiveness. Using a convolutional neural network architecture based on EfficientNet-B5, our model demonstrates promising performance with acceptable error margins on validation data.
+We present RateMeAI, a novel facial evaluation tool that leverages data from the r/truerateme community to construct a neural network capable of quantitatively assessing facial attractiveness. The current production backbone is a frozen [DINOv3](https://github.com/facebookresearch/dinov3) feature extractor (`facebook/dinov3-vits16-pretrain-lvd1689m`) with a small ModernMLPBlock-based regression head; earlier EfficientNet-B5, ConvNeXT, ViT, CLIP, and DINOv2 variants are kept in the repo for comparison.
 
 # Technologies
 This project is created with:
@@ -60,6 +60,8 @@ Our approach leverages multiple state-of-the-art vision models with a standardiz
 3. **VisionTransformer (ViT)**: A transformer-based architecture that processes images as sequences of patches, leveraging self-attention mechanisms to capture global dependencies between image regions.
 
 4. **CLIP**: A multimodal model trained on image-text pairs that learns visual representations aligned with natural language descriptions, enabling zero-shot transfer to new tasks.
+
+5. **DINOv3** *(current default)*: Facebook AI's third-generation self-supervised ViT (gated; accept the license at https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m and `huggingface-cli login` before training). Used here as a frozen feature extractor; only the regression head is trained on cached features. The Lightning lifecycle, augmentation presets, and the `MapDataset`/`ReplicatedDataset`/`DiskCachedDataset` cache pipeline come from [MLTK](https://github.com/Pop101/MLTK), vendored as a git submodule under `modules/MLTK`. Backbone loading lives in `modules/backbones.py` (RateMeAI-local since it's HF-specific); the last-layer self-attention is exposed via `BackboneSpec.forward_with_attn` so the focus map shows where the CLS token actually attends.
 
 ## Unified Classification Head
 
@@ -104,9 +106,11 @@ This project is ripe for abuse. Luckily, it barely works, but still: Please don'
 # Getting Started
 
 ## Installation
-Clone the repository and ensure poetry is installed
+Clone the repository (with submodules — MLTK lives in `modules/MLTK`) and ensure poetry is installed
 ```sh
-git clone https://github.com/Pop101/RateMeAI
+git clone --recurse-submodules https://github.com/Pop101/RateMeAI
+# or, if you already cloned without --recurse-submodules:
+# git submodule update --init --recursive
 pip install poetry
 ```
 

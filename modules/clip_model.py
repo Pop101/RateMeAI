@@ -1,160 +1,87 @@
+"""CLIP-ViT-as-frozen-backbone + ``MLPRegressionHead`` + attention map (Lightning).
+
+For pure regression, prefer ``DinoVisionAnalysisModel`` — DINOv2 has
+better spatial features. This subclass is kept around for the CLIP-flavored
+attention map and as a comparison backbone. The backbone is loaded directly
+via ``transformers.CLIPVisionModel`` because we want raw access to
+``output_attentions=True`` on every forward.
+"""
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from transformers import CLIPVisionModel, CLIPProcessor
+import torchvision.transforms as transforms
+from transformers import CLIPVisionModel
 
-from modules.complex_head import ComplexHead
-from modules.torchgpu import device
+from modules.heads import MLPRegressionHead
+from mltk import AbstractModel, auto_device
 
-class CLIPVisionAnalysisModel:
-    def __init__(self, lr=0.001, clip_model_name="openai/clip-vit-base-patch32"):   
-        # Initialize Clip
-        clip_model = ClipBaseModel(clip_model_name)
-        
-        # Create a single sequential model
-        self.model = nn.Sequential(
-            clip_model,
-            nn.LayerNorm(clip_model.hidden_dim),
-            ComplexHead(clip_model.hidden_dim, out_features=1)
-        )
-        
-        # Initialize criterion and optimizer
-        self.criterion = nn.MSELoss()
-        
-        self.optimizer = optim.AdamW(
-            self.model.parameters(),
-            lr=lr,
-            weight_decay=1e-5,
-        )
-        
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer,
-            mode='min',
-            factor=0.7,
-            patience=5,          
-            cooldown=3,
-            min_lr=1e-6
-        )
-    
-    def train_batch(self, batch, transforms=None):
-        self.model.train()
-        
-        # Unpack batch
-        images, labels = batch
-        
-        # Apply transforms on-the-fly to each image if transforms provided
-        if transforms:
-            transformed_images = transforms(images)
-        else:
-            transformed_images = images            
-        
-        # Move to device
-        transformed_images = transformed_images.to(device)
-        labels = labels.to(device)  # Assuming labels are one-hot encoded tensors
-        
-        if torch.isnan(transformed_images).any():
-            print("NaN detected in input images!")
-            return float('nan')
-                    
-        # Zero gradients
-        self.optimizer.zero_grad()
-        
-        # Forward pass
-        outputs = self.model(transformed_images)
-        outputs = outputs.squeeze()
-        loss = self.criterion(outputs, labels)
-        
-        # Backward pass
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-        self.optimizer.step()
-        
-        return loss.item()
-    
-    def update_scheduler(self, val_loss):
-        self.scheduler.step(val_loss)
-    
-    def evaluate(self, data_loader, transforms=None):
-        self.model.eval()
-        total_loss = 0.0
-        total_mae = 0.0
-        num_samples = 0
-        
-        with torch.no_grad():
-            for inputs, labels in data_loader:                
-                if transforms:
-                    inputs = transforms(inputs)
-                
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-            
-                # Get output floats
-                outputs = self.model(inputs)
-                outputs = outputs.view(labels.shape)
-                loss = self.criterion(outputs, labels)
-                
-                # Calculate accuracy for multi-label classification
-                mae = torch.abs(outputs - labels).mean()
-                
-                batch_size = inputs.size(0)
-                total_loss += loss.item() * batch_size
-                total_mae += mae.item() * batch_size
-                num_samples += batch_size
-        
-        return total_loss / num_samples, total_mae / num_samples
-    
-    def __call__(self, image: torch.Tensor) -> torch.Tensor:
-        """Return predicted probabilities for a single image"""
-        self.model.eval()
-        with torch.no_grad():
-            return self.model(image)
-        
-    def get_current_lr(self):
-        """Return the current learning rate"""
-        return self.optimizer.param_groups[0]['lr']
-    
-    def send_to_device(self, device):
-        """Sends the current model to the specified device, mutating the model (not like .to)"""
-        self.model = self.model.to(device)
-        self.criterion = self.criterion.to(device)
-    
-    def save(self, filepath):
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-        }, filepath)
-    
-    @staticmethod
-    def load(filepath, lr=0.001):
-        checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
-        
-        model = CLIPVisionAnalysisModel(lr=lr) # lr will be overwritten by the loaded value
-        
-        model.model.load_state_dict(checkpoint['model_state_dict'])
-        model.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        model.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-        
-        return model
-        
-class ClipBaseModel(nn.Module):
-    """Wrapper for CLIP vision model to use in a sequential model"""
-    def __init__(self, model_name="openai/clip-vit-base-patch32", freeze=False):
+device = auto_device()
+
+_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
+_CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
+
+
+class CLIPVisionAnalysisModel(AbstractModel):
+    def __init__(
+        self,
+        lr: float = 0.001,
+        clip_model_name: str = "openai/clip-vit-base-patch32",
+        dtype: torch.dtype = torch.float32,
+    ):
         super().__init__()
-        self.clip_vision_model = CLIPVisionModel.from_pretrained(model_name)
-        
-        # Freeze the model
-        for param in self.clip_vision_model.parameters():
-            param.requires_grad = not freeze
-        
-    def forward(self, x):
-        outputs = self.clip_vision_model(pixel_values=x)
-        return outputs.pooler_output
-    
-    @property
-    def hidden_dim(self):
-        return self.clip_vision_model.config.hidden_size
-    
-    @property
-    def is_frozen(self):
-        return all(not param.requires_grad for param in self.clip_vision_model.parameters())
+        self.save_hyperparameters({"lr": lr, "clip_model_name": clip_model_name})
+        self.clip_model_name = clip_model_name
+
+        backbone = CLIPVisionModel.from_pretrained(clip_model_name)
+        feat_dim = backbone.config.hidden_size
+        for p in backbone.parameters():
+            p.requires_grad = False
+        backbone.eval()
+        self._backbone = backbone.to(device=device, dtype=dtype)
+
+        self.head = MLPRegressionHead(feat_dim, out_dim=1)
+        self.normalize = transforms.Normalize(mean=_CLIP_MEAN, std=_CLIP_STD)
+        self.criterion = nn.MSELoss()
+        self.optimizer = optim.AdamW(self.head.parameters(), lr=lr, weight_decay=1e-5)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode='min', factor=0.7, patience=5, cooldown=3, min_lr=1e-6
+        )
+        self.scheduler.interval = "epoch"
+        self.scheduler.monitor = "val_loss"
+
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        return self.head(self.forward_backbone(image)).squeeze(-1)
+
+    def forward_features(self, features: torch.Tensor) -> torch.Tensor:
+        return self.head(features).squeeze(-1)
+
+    def forward_backbone(self, image: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            return self._backbone(pixel_values=image).pooler_output
+
+    def get_focus_map(self, image: torch.Tensor) -> torch.Tensor:
+        """Last-layer attention map. Leaves the model in eval mode."""
+        self.eval()
+        with torch.no_grad():
+            image = image.to(device=self.device, dtype=self.dtype)
+            normed = self.normalize(image) if self.normalize is not None else image
+            outputs = self._backbone(pixel_values=normed, output_attentions=True)
+
+            attn_weights = outputs.attentions[-1].mean(dim=1)
+            patch_attn = attn_weights[:, 1:, 1:].mean(dim=1)
+
+            patch_size = self._backbone.config.patch_size
+            h = w = (image.shape[2] + patch_size - 1) // patch_size
+            focus_mask = patch_attn.reshape(-1, h, w)
+
+            mn = focus_mask.amin(dim=(1, 2), keepdim=True)
+            mx = focus_mask.amax(dim=(1, 2), keepdim=True)
+            focus_mask = (focus_mask - mn) / (mx - mn + 1e-6)
+
+            focus_mask = torch.nn.functional.interpolate(
+                focus_mask.unsqueeze(1),
+                size=(image.shape[2], image.shape[3]),
+                mode='bicubic',
+                align_corners=False,
+            ).squeeze(1)
+            return focus_mask.clamp_(0.0, 1.0)

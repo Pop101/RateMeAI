@@ -3,3 +3,7 @@
 poetry.lock
 thumbnails/
 models/
+cache/
+.claude/
+__pycache__/
+.pytest_cache/

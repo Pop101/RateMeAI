@@ -1,126 +1,99 @@
-from torch.utils.data import Dataset
-import torchvision.transforms as transforms
-import torch
-import numpy as np
+"""Reddit-rating image dataset.
 
+This module is now a thin subclass of `mltk.AbstractImageDataset`. The base
+owns the image pipeline (PIL -> tensor -> pad -> resize -> augment) and the
+augmentation presets; we only implement `load_raw` to read a row out of the
+parquet-derived list of dicts.
+
+Normalization is *not* here on purpose — the model owns it (per-backbone
+mean/std). See the MLTK paradigm note in `mltk/data/__init__.py`.
+
+`pad_to_square` and `DeviceLRUCache` used to live here; they moved into
+mltk. Kept as re-exports so existing `from modules.image_dataset import ...`
+imports still work.
+"""
+import os
+import random
+from typing import Callable, Optional, Tuple
+
+import numpy as np
+import torch
+import torchvision.transforms as transforms
 from PIL import Image
 
-from collections import OrderedDict
+from mltk import (  # noqa: F401
+    AbstractImageDataset,
+    DeviceLRUCache,
+    STANDARD_AUGMENT,
+    pad_to_square,
+)
 
-from typing import Tuple
-import random
-
+# Per-dataset stats kept here for the `calculate_stats` helper / archive value.
+# They are NOT applied automatically anymore — the active model's normalize
+# (in DinoVisionAnalysisModel) uses ImageNet stats from the backbone spec.
 MEAN = [0.4907244145870209, 0.4381392002105713, 0.407711386680603]
 STD  = [0.2914842963218689, 0.2807084321975708, 0.2719435691833496]
 
-def pad_to_square(image:torch.Tensor) -> torch.Tensor:
-    """Pad an image to make it square."""
-    c, h, w = image.shape
-    
-    # Find the maximum dimension
-    max_dim = max(h, w)
-    
-    # Calculate padding for height and width
-    pad_h = (max_dim - h) // 2
-    pad_h_remainder = (max_dim - h) % 2  # Handle odd padding
-    
-    pad_w = (max_dim - w) // 2
-    pad_w_remainder = (max_dim - w) % 2  # Handle odd padding
-    
-    # Apply padding [left, right, top, bottom]
-    padding = (pad_w, pad_w + pad_w_remainder, pad_h, pad_h + pad_h_remainder)
-    
-    # Use torch functional padding with constant value (usually 0 or 1 depending on normalization)
-    padded_image = torch.nn.functional.pad(image, padding, mode='constant', value=0)
-    return padded_image
-        
-class ImageRatingDataset(Dataset):
-    def __init__(self, dataframe, size:tuple=(320, 320)):
-        self.data = dataframe.to_dicts()
-        self.size = size
-    
-    @staticmethod
-    def get_transforms(train=True) -> transforms.Compose:
-        """Create image transforms with learned mean and std"""        
-        # Create transforms pipeline
-        if train:
-            return transforms.Compose([
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomRotation(15),
-                transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
-                transforms.ColorJitter(brightness=0.1, contrast=0.1),
-                transforms.Normalize(mean=MEAN, std=STD),
-            ])
-        else:
-            return transforms.Compose([
-                transforms.Normalize(mean=MEAN, std=STD),
-            ])
-            
-    def get_size_transpose(self):
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Lambda(pad_to_square),
-            transforms.Resize(self.size),
-        ])
-        
-    def __len__(self):
+
+class ImageRatingDataset(AbstractImageDataset):
+    # Windows-reserved chars in paths (PIL can't open them; URL query suffixes
+    # like "image.jpg?3" survived the thumbnail download for ~0.5% of rows).
+    _INVALID_PATH_CHARS = set('<>:"|?*')
+
+    def __init__(
+        self,
+        dataframe,
+        size: Tuple[int, int] = (320, 320),
+        train: bool = True,
+        augment: Optional[Callable] = STANDARD_AUGMENT,
+    ):
+        super().__init__(size=size, train=train, augment=augment)
+
+        rows = dataframe.to_dicts()
+        kept = []
+        skipped_invalid = 0
+        skipped_missing = 0
+        for r in rows:
+            p = r.get("local_path", "")
+            if any(c in p for c in self._INVALID_PATH_CHARS):
+                skipped_invalid += 1
+                continue
+            if not os.path.exists(p):
+                skipped_missing += 1
+                continue
+            kept.append(r)
+        if skipped_invalid or skipped_missing:
+            print(
+                f"ImageRatingDataset: kept {len(kept)}/{len(rows)} rows "
+                f"(skipped {skipped_invalid} with invalid path chars, "
+                f"{skipped_missing} missing on disk)"
+            )
+        self.data = kept
+
+    def __len__(self) -> int:
         return len(self.data)
-    
-    def __getitem__(self, idx):
+
+    def load_raw(self, idx: int):
         item = self.data[idx]
         img_path = item["local_path"]
-        rating = item["mean_rating"] if np.isnan(item["weighted_rating"]) or np.isinf(item["weighted_rating"]) else item["weighted_rating"]
-        
-        # Load image. Note it is the user's job to apply transforms if desired
+        rating = (
+            item["mean_rating"]
+            if np.isnan(item["weighted_rating"]) or np.isinf(item["weighted_rating"])
+            else item["weighted_rating"]
+        )
         image = Image.open(img_path).convert("RGB")
-        image_tensor = self.get_size_transpose()(image)
-        return image_tensor, torch.tensor(rating, dtype=torch.float32)
+        return image, torch.tensor(rating, dtype=torch.float32)
 
 
-
-class LRUCacheDataset(Dataset):
-    def __init__(self, dataset, cache_size=5000, device='cuda'):
-        self.dataset = dataset
-        self.cache_size = cache_size
-        self.device = device
-        self.cache = OrderedDict()  # LRU cache: idx -> (image, label)
-    
-    def __len__(self):
-        return len(self.dataset)
-    
-    def __getitem__(self, idx):
-        if idx in self.cache:
-            # Move item to end (most recently used)
-            self.cache.move_to_end(idx)
-            return self.cache[idx]
-        
-        # Get from original dataset
-        image, label = self.dataset[idx]
-        
-        # Move to device
-        image = image.to(self.device)
-        label = label.to(self.device)
-        
-        # Add to cache
-        self.cache[idx] = (image, label)
-        
-        # Remove oldest item if cache is full
-        if len(self.cache) > self.cache_size:
-            self.cache.popitem(last=False)
-        
-        return image, label
-
-
-# If we ever need to recalculate stats:
-def calculate_stats(data:ImageRatingDataset, sample_size: int) -> Tuple[list, list]:
-    """Calculate mean and std from a random sample of images"""
-    # Take a sample of images
+# ---------------------------------------------------------------------------
+# Stats helper — kept for archival use. Recompute if the corpus changes
+# materially. Not run by anything in the training path.
+# ---------------------------------------------------------------------------
+def calculate_stats(data: ImageRatingDataset, sample_size: int):
+    """Calculate channel mean/std from a random sample of images."""
     sample_indices = random.sample(range(len(data.data)), min(sample_size, len(data.data)))
-    
-    # Convert to tensor (N, C, H, W)
-    sample_tensors = []
     to_tensor = transforms.ToTensor()
-    
+    sample_tensors = []
     for idx in sample_indices:
         img_path = data.data[idx]["local_path"]
         img = Image.open(img_path).convert("RGB")
@@ -128,8 +101,6 @@ def calculate_stats(data:ImageRatingDataset, sample_size: int) -> Tuple[list, li
         img_tensor = to_tensor(img)
         img_tensor = pad_to_square(img_tensor)
         sample_tensors.append(img_tensor)
-    
-    # Stack tensors and calculate stats
     if sample_tensors:
         sample_batch = torch.stack(sample_tensors)
         mean = sample_batch.mean(dim=[0, 2, 3]).tolist()
@@ -137,14 +108,12 @@ def calculate_stats(data:ImageRatingDataset, sample_size: int) -> Tuple[list, li
         return mean, std
     raise ValueError("No images found in the sample.")
 
+
 if __name__ == "__main__":
-    # Recalculate stats
     import polars as pl
     df = pl.read_parquet("./reddit_posts_rated.parquet")
     ds = ImageRatingDataset(df)
-    
     print("Calculating stats...")
-    
     mean, std = calculate_stats(ds, 800)
     print("Mean:", mean)
     print("STD:", std)
