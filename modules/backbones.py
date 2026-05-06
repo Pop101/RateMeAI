@@ -173,7 +173,9 @@ def load_backbone(
     if "siglip" in lower:
         from transformers import AutoModel
 
-        model = AutoModel.from_pretrained(hf_model_id, torch_dtype=dtype)
+        model = AutoModel.from_pretrained(
+            hf_model_id, torch_dtype=dtype, attn_implementation="eager",
+        )
         vision = getattr(model, "vision_model", model).eval().to(device)
 
         def forward(pixel_values: torch.Tensor) -> torch.Tensor:
@@ -188,7 +190,9 @@ def load_backbone(
     elif "clip" in lower:
         from transformers import CLIPVisionModel
 
-        vision = CLIPVisionModel.from_pretrained(hf_model_id, torch_dtype=dtype).eval().to(device)
+        vision = CLIPVisionModel.from_pretrained(
+            hf_model_id, torch_dtype=dtype, attn_implementation="eager",
+        ).eval().to(device)
 
         def forward(pixel_values: torch.Tensor) -> torch.Tensor:
             return vision(pixel_values=pixel_values).pooler_output
@@ -201,9 +205,14 @@ def load_backbone(
         num_prefix_tokens = 1  # CLS token only
     elif "dinov" in lower:
         # Matches dinov2, dinov2_with_registers, dinov3, etc.
+        # ``attn_implementation="eager"`` is required so output_attentions=True
+        # actually returns weights — transformers 5.x defaults to SDPA, which
+        # silently drops attention output.
         from transformers import AutoModel
 
-        vision = AutoModel.from_pretrained(hf_model_id, torch_dtype=dtype).eval().to(device)
+        vision = AutoModel.from_pretrained(
+            hf_model_id, torch_dtype=dtype, attn_implementation="eager",
+        ).eval().to(device)
 
         def forward(pixel_values: torch.Tensor) -> torch.Tensor:
             # CLS token is index 0 even with register tokens — registers come
